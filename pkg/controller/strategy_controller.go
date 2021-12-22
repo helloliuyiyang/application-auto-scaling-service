@@ -73,10 +73,10 @@ func (s *StrategyController) Start(ctx context.Context, cancel context.CancelFun
 		select {
 		case <-ticker.C:
 			if !s.isStrategiesFileModified() {
-				logger.Info("local strategies is not modified")
+				logger.Info("Local strategies is not modified")
 				continue
 			}
-			logger.Info("local strategies is modified, refresh cron tasks")
+			logger.Info("Local strategies is modified, refresh cron tasks")
 			// 注销之前的定时修改任务
 			cronutil.GetCron().Stop()
 			cronutil.RemoveAllCronEntries()
