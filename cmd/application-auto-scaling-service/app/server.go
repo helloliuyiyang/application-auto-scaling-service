@@ -8,12 +8,17 @@ import (
 	"syscall"
 	"time"
 
-	"nanto.io/application-auto-scaling-service/pkg/config"
-	"nanto.io/application-auto-scaling-service/pkg/controller"
-	"nanto.io/application-auto-scaling-service/pkg/k8sclient"
-	"nanto.io/application-auto-scaling-service/pkg/syncer"
-	"nanto.io/application-auto-scaling-service/pkg/utils/logutil"
-	"nanto.io/application-auto-scaling-service/pkg/utils/obsutil"
+	"github.com/pkg/errors"
+
+	"nanto.io/application-auto-scaling-service/pkg/common/config"
+	"nanto.io/application-auto-scaling-service/pkg/common/utils/logutil"
+	"nanto.io/application-auto-scaling-service/pkg/common/utils/obsutil"
+	"nanto.io/application-auto-scaling-service/pkg/mpc/controller"
+	"nanto.io/application-auto-scaling-service/pkg/mpc/k8sclient"
+	"nanto.io/application-auto-scaling-service/pkg/mpc/syncer"
+	"nanto.io/application-auto-scaling-service/pkg/search/ascontroller"
+	"nanto.io/application-auto-scaling-service/pkg/search/httpserver"
+	"nanto.io/application-auto-scaling-service/pkg/search/rpcclient"
 )
 
 var (
@@ -60,6 +65,43 @@ func Run(configFile string) error {
 
 // 启动 application-auto-scaling-service 服务
 func startService(ctx context.Context, conf *config.Config, cancel context.CancelFunc) error {
+	logger.Infof("Start service, run with scene[%s]", conf.Scene)
+	switch conf.Scene {
+	case config.SceneMPC, "":
+		return runWithSceneMPC(ctx, conf, cancel)
+	case config.SceneSearch:
+		return runWithSceneSearch(ctx, conf, cancel)
+	default:
+		return errors.Errorf("Invalid scene[%s]", conf.Scene)
+	}
+}
+
+// 搜索场景
+func runWithSceneSearch(ctx context.Context, conf *config.Config, cancel context.CancelFunc) error {
+	// 初始化app-gateway的client
+	if err := rpcclient.InitAppGwReporter(&conf.AppGatewayConf); err != nil {
+		return err
+	}
+
+	// 初始化As控制器
+	ascontroller.InitAsController()
+
+	// 启动http server；负责接收fleet、as_policy相关请求、告警webhook
+	go func() {
+		if err := httpserver.StartHttpServer(&conf.HttpServerConf, ctx.Done()); err != nil {
+			logger.Errorf("start http server: %+v", err)
+			cancel()
+		}
+	}()
+
+	// mock fleet并发量
+	go httpserver.Prometheus()
+
+	return nil
+}
+
+// 转码场景
+func runWithSceneMPC(ctx context.Context, conf *config.Config, cancel context.CancelFunc) error {
 	var (
 		obsCli *obsutil.ObsClient
 		err    error

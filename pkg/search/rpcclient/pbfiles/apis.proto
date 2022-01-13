@@ -1,0 +1,80 @@
+syntax = "proto3";
+option go_package = "./;apis";
+
+message Server {
+  string id = 1;
+  string ip = 2;
+  ProcessConfig processConfig = 3;
+}
+
+message ProcessConfig {
+  int64 maxConcurrency = 1;
+}
+
+message ServerQueue {
+  string name = 1;
+  string serverQueueID = 2;
+  int64 maxConcurrency = 3;
+  int64 nowConcurrency = 4;
+  repeated Server servers = 5;
+}
+
+enum StatusCode {
+  CreateServerQueueSuccess = 0;
+  CreateServerQueueFailed = 1;
+  DeleteServerQueueSuccess = 2;
+  DeleteServerQueueFailed = 3;
+
+  CreateServerSuccess = 6;
+  CreateServerFailed = 7;
+  DeleteServerSuccess = 8;
+  DeleteServerFailed = 9;
+}
+
+message ErrorMsg {
+  StatusCode statusCode = 1;
+  string message = 2;
+}
+
+message CreateServerQueueReq {
+  string name = 1;
+}
+
+message CreateServerQueueRes {
+  ErrorMsg errMsg = 1;
+}
+
+message DeleteServerQueueReq {
+  string id = 1;
+}
+
+message DeleteServerQueueRes {
+  ErrorMsg errMsg = 1;
+}
+
+message CreateServerReq {
+  string serverQueueID = 1;
+  Server server = 2;
+}
+
+message CreateServerRes {
+  ErrorMsg errMsg = 1;
+}
+
+message DeleteServerReq {
+  string serverQueueID = 1;
+  string id = 2;
+}
+
+message DeleteServerRes {
+  ErrorMsg errMsg = 1;
+}
+
+service MataService {
+  rpc CreateServerQueue(CreateServerQueueReq) returns(CreateServerQueueRes) {}
+  rpc DeleteServerQueue(DeleteServerQueueReq) returns(DeleteServerQueueRes) {}
+
+  rpc CreateServer(CreateServerReq) returns(CreateServerRes) {}
+  rpc DeleteServer(DeleteServerReq) returns(DeleteServerRes) {}
+}
+
